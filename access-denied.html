@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied | Unauthorized Access</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Background Pattern */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="10" cy="10" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="30" cy="20" r="1.5" fill="rgba(255,255,255,0.1)"/><circle cx="70" cy="15" r="2.5" fill="rgba(255,255,255,0.1)"/><circle cx="85" cy="40" r="1.8" fill="rgba(255,255,255,0.1)"/><circle cx="15" cy="70" r="2.2" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="85" r="1.7" fill="rgba(255,255,255,0.1)"/><circle cx="90" cy="80" r="2" fill="rgba(255,255,255,0.1)"/></svg>');
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 600px;
+            animation: slideUp 0.8s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1%, transparent 1%);
+            background-size: 50px 50px;
+            animation: patternMove 20s linear infinite;
+        }
+
+        @keyframes patternMove {
+            from { transform: translate(0, 0); }
+            to { transform: translate(50px, 50px); }
+        }
+
+        .icon {
+            font-size: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            width: 120px;
+            height: 120px;
+            line-height: 120px;
+            border-radius: 60px;
+            margin: 0 auto 20px;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .icon i {
+            animation: iconPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes iconPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        h1 {
+            color: white;
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            font-weight: 500;
+            position: relative;
+            z-index: 1;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .ip-section {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 25px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .ip-label {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #5a67d8;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .ip-address {
+            font-size: 28px;
+            font-weight: 800;
+            font-family: 'Courier New', monospace;
+            background: white;
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 50px;
+            color: #2d3748;
+            letter-spacing: 1px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 2px solid #667eea;
+        }
+
+        .ip-address i {
+            color: #667eea;
+            margin-right: 10px;
+        }
+
+        .warning-box {
+            background: #fff5f5;
+            border-left: 4px solid #f56565;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .warning-box i {
+            color: #f56565;
+            font-size: 20px;
+            margin-right: 10px;
+        }
+
+        .warning-text {
+            color: #c53030;
+            font-weight: 500;
+            margin-top: 8px;
+            line-height: 1.6;
+        }
+
+        .allowed-ips {
+            background: #f0fff4;
+            border: 1px solid #c6f6d5;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .allowed-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #38a169;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .allowed-title i {
+            margin-right: 8px;
+        }
+
+        .ip-badge {
+            display: inline-block;
+            background: #38a169;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-family: monospace;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .ip-badge i {
+            margin-right: 6px;
+            font-size: 12px;
+        }
+
+        .info-text {
+            color: #4a5568;
+            line-height: 1.8;
+            margin-bottom: 25px;
+            font-size: 15px;
+            text-align: center;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            background: #f7fafc;
+            padding: 20px 30px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .footer-text {
+            color: #718096;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .footer-text i {
+            margin: 0 5px;
+        }
+
+        .log-notice {
+            background: #edf2f7;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 11px;
+            color: #718096;
+        }
+
+        @media (max-width: 640px) {
+            .card {
+                border-radius: 24px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .content {
+                padding: 30px 20px;
+            }
+            
+            .ip-address {
+                font-size: 20px;
+                padding: 8px 16px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .icon {
+                width: 90px;
+                height: 90px;
+                line-height: 90px;
+                font-size: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <div class="icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h1>Access Denied</h1>
+                <div class="subtitle">Unauthorized Access Attempt Detected</div>
+            </div>
+            
+            <div class="content">
+                <div class="ip-section">
+                    <span class="ip-label">
+                        <i class="fas fa-map-marker-alt"></i> YOUR IP ADDRESS
+                    </span>
+                    <div class="ip-address">
+                        <i class="fas fa-terminal"></i> 
+                        <?php
+                            $ip = $_SERVER['REMOTE_ADDR'];
+                            echo htmlspecialchars($ip);
+                        ?>
+                    </div>
+                </div>
+                
+                <div class="warning-box">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Access Restricted</strong>
+                    <div class="warning-text">
+                        Your IP address is not authorized to access phpMyAdmin.<br>
+                        This incident has been logged for security purposes.
+                    </div>
+                </div>
+                
+                <div class="allowed-ips">
+                    <div class="allowed-title">
+                        <i class="fas fa-check-circle"></i> AUTHORIZED IP ADDRESSES
+                    </div>
+                    <div>
+                        <span class="ip-badge">
+                            <i class="fas fa-server"></i> 43.231.78.203
+                        </span>
+                        <span class="ip-badge">
+                            <i class="fas fa-laptop"></i> 127.0.0.1 (Localhost)
+                        </span>
+                    </div>
+                    <div class="log-notice" style="margin-top: 15px;">
+                        <i class="fas fa-info-circle"></i> Only these IP addresses are permitted to access phpMyAdmin
+                    </div>
+                </div>
+                
+                <div class="info-text">
+                    <i class="fas fa-lock" style="color: #667eea;"></i>
+                    This is a security measure to protect your database from unauthorized access.<br>
+                    If you believe this is an error, please contact your system administrator.
+                </div>
+                
+                <div class="buttons">
+                    <button onclick="history.back()" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Go Back
+                    </button>
+                    <button onclick="window.location.reload()" class="btn btn-primary">
+                        <i class="fas fa-sync-alt"></i> Try Again
+                    </button>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <div class="footer-text">
+                    <i class="fas fa-database"></i> phpMyAdmin Secure Access
+                    <i class="fas fa-circle" style="font-size: 4px; vertical-align: middle;"></i>
+                    <i class="fas fa-shield-virus"></i> Protected by IP Whitelist
+                    <i class="fas fa-circle" style="font-size: 4px; vertical-align: middle;"></i>
+                    <i class="far fa-clock"></i> <?php echo date('Y-m-d H:i:s'); ?>
+                </div>
+                <div class="log-notice" style="background: transparent; margin-top: 10px;">
+                    <i class="fas fa-fingerprint"></i> All unauthorized access attempts are automatically logged
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
