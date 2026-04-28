@@ -55196,6 +55196,25 @@ if ($ADD == 999999) {
             ];
         }
 
+        // Look for server_live_partitions entries
+        for ($i = 0; $i < $servers_to_print; $i++) {
+            $stmt = "SELECT partition_order, use_pct from server_live_partitions where server_ip='{$server_data[$i]['server_ip']}' and (mb_used + mb_available) >= 1000;";
+            $rslt = mysql_to_mysqli($stmt, $link);
+            if ($DB) { echo "<!-- $stmt -->\n"; }
+            $parts_to_print = mysqli_num_rows($rslt);
+            $pp = 0;
+            $temp_disk_usage = '';
+            while ($parts_to_print > $pp) {
+                $row = mysqli_fetch_row($rslt);
+                $part_order = ($row[0] + 1);
+                $temp_disk_usage .= "$part_order $row[1]|";
+                $pp++;
+            }
+            if (strlen($temp_disk_usage) > 3) {
+                $server_data[$i]['disk_usage'] = $temp_disk_usage;
+            }
+        }
+
         // Get system settings
         $stmt = "SELECT queuemetrics_url, vtiger_url FROM system_settings;";
         $rslt = mysql_to_mysqli($stmt, $link);
@@ -55215,7 +55234,13 @@ if ($ADD == 999999) {
         $inventory_report_count = $row[0] ?? 0;
 
         ?>
-        </head>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <style>
             :root {
                 --sky-light: #e0f2fe;
@@ -55229,18 +55254,27 @@ if ($ADD == 999999) {
                 --gray-100: #f1f5f9;
                 --gray-200: #e2e8f0;
                 --gray-300: #cbd5e1;
+                --gray-400: #94a3b8;
+                --gray-500: #64748b;
                 --gray-600: #475569;
                 --gray-700: #334155;
                 --gray-800: #1e293b;
+                --gray-900: #0f172a;
                 --danger-light: #fee2e2;
                 --danger-dark: #991b1b;
+                --success: #10b981;
                 --success-light: #dcfce7;
                 --success-dark: #166534;
                 --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+                --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
                 --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
                 --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
                 --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
                 --border-radius: 16px;
+                --radius-sm: 8px;
+                --radius: 12px;
+                --radius-lg: 16px;
+                --radius-xl: 20px;
                 --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
@@ -55251,11 +55285,12 @@ if ($ADD == 999999) {
             }
 
             body {
-                font-family: 'Poppins', sans-serif;
+                font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 background: linear-gradient(145deg, #f0f9ff 0%, #e0f2fe 100%);
+                color: var(--gray-800);
+                line-height: 1.5;
                 max-height: 100vh;
-                padding: 24px;
-		Width: auto;
+                padding: 20px;
                 position: relative;
                 overflow-x: hidden;
             }
@@ -55263,28 +55298,30 @@ if ($ADD == 999999) {
             /* Animated background */
             body::before {
                 content: '';
-                position: absolute;
+                position: fixed;
                 top: -50%;
                 right: -50%;
                 width: 100%;
                 height: 100%;
-                background: radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, transparent 70%);
+                background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
                 border-radius: 50%;
                 z-index: 0;
                 animation: float 20s ease-in-out infinite;
+                pointer-events: none;
             }
 
             body::after {
                 content: '';
-                position: absolute;
+                position: fixed;
                 bottom: -50%;
                 left: -50%;
                 width: 100%;
                 height: 100%;
-                background: radial-gradient(circle, rgba(2, 132, 199, 0.1) 0%, transparent 70%);
+                background: radial-gradient(circle, rgba(2, 132, 199, 0.08) 0%, transparent 70%);
                 border-radius: 50%;
                 z-index: 0;
                 animation: float 25s ease-in-out infinite reverse;
+                pointer-events: none;
             }
 
             @keyframes float {
@@ -55293,696 +55330,833 @@ if ($ADD == 999999) {
             }
 
             .dashboard {
-                min-width: 1400px;
-		margin: 10px;
+                max-width: 1440px;
+                margin: 0 auto;
                 position: relative;
                 z-index: 1;
             }
 
-            /* Header Section */
-            .dashboard-header {
+            /* Header */
+            .header {
                 background: rgba(255, 255, 255, 0.9);
                 backdrop-filter: blur(10px);
-                border-radius: var(--border-radius);
-                padding: 25px 30px;
-                margin-bottom: 30px;
+                border-radius: var(--radius-xl);
+                padding: 24px 32px;
+                margin-bottom: 24px;
                 box-shadow: var(--shadow-lg);
-                border: 1px solid rgba(255, 255, 255, 0.5);
                 display: flex;
                 align-items: center;
                 gap: 20px;
-                animation: slideDown 0.5s ease-out;
-            }
-
-            @keyframes slideDown {
-                from {
-                    opacity: 0;
-                    transform: translateY(-20px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
+                flex-wrap: wrap;
+                border: 1px solid rgba(255, 255, 255, 0.5);
             }
 
             .header-icon {
-                width: 60px;
-                height: 60px;
+                width: 56px;
+                height: 56px;
                 background: var(--sky-gradient);
-                border-radius: 18px;
+                border-radius: var(--radius-lg);
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: var(--shadow-md);
-            }
-
-            .header-icon i {
-                font-size: 32px;
+                flex-shrink: 0;
+                box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
                 color: white;
+                font-size: 24px;
             }
 
-            .header-title h1 {
-                font-size: 28px;
+            .header-info {
+                flex: 1;
+                min-width: 200px;
+            }
+
+            .header-info h1 {
+                font-size: 24px;
                 font-weight: 700;
                 color: var(--gray-800);
-                margin-bottom: 5px;
+                letter-spacing: -0.5px;
             }
 
-            .header-title p {
-                font-size: 14px;
+            .header-info .subtitle {
+                font-size: 13px;
                 color: var(--gray-600);
+                margin-top: 2px;
                 display: flex;
                 align-items: center;
                 gap: 8px;
+                flex-wrap: wrap;
             }
 
-            .header-title p i {
+            .header-info .subtitle i {
+                font-size: 6px;
                 color: var(--sky-primary);
-                font-size: 8px;
             }
 
             .header-stats {
-                margin-left: auto;
                 display: flex;
-                gap: 20px;
+                gap: 24px;
+                margin-left: auto;
             }
 
-            .header-stat {
-                text-align: right;
+            .stat-item {
+                text-align: center;
+                padding: 8px 16px;
+                background: rgba(224, 242, 254, 0.5);
+                border-radius: var(--radius);
+                border: 1px solid var(--sky-medium);
             }
 
-            .header-stat .label {
-                font-size: 12px;
+            .stat-label {
+                font-size: 11px;
                 color: var(--gray-600);
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
+                font-weight: 500;
             }
 
-            .header-stat .value {
-                font-size: 18px;
+            .stat-value {
+                font-size: 22px;
                 font-weight: 700;
                 color: var(--sky-dark);
+                letter-spacing: -0.5px;
             }
 
-            .system-summary-link {
+            .btn-system-summary {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
                 background: var(--sky-gradient);
                 color: white;
                 text-decoration: none;
-                padding: 12px 25px;
+                padding: 10px 20px;
                 border-radius: 50px;
+                font-size: 14px;
                 font-weight: 500;
-                display: flex;
-                align-items: center;
-                gap: 10px;
                 transition: var(--transition);
                 box-shadow: var(--shadow-md);
+                white-space: nowrap;
             }
 
-            .system-summary-link:hover {
+            .btn-system-summary:hover {
                 transform: translateY(-3px);
                 box-shadow: var(--shadow-xl);
             }
 
-            /* Reports Grid */
-            .reports-grid {
+            /* Report Cards Grid */
+            .cards-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-                gap: 25px;
-                margin-bottom: 30px;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 20px;
+                margin-bottom: 24px;
             }
 
-            .report-card {
-                background: white;
-                border-radius: var(--border-radius);
+            .card {
+                background: var(--white);
+                border-radius: var(--radius-xl);
                 box-shadow: var(--shadow-lg);
                 overflow: hidden;
                 transition: var(--transition);
                 border: 1px solid rgba(255, 255, 255, 0.2);
-                animation: fadeInUp 0.5s ease-out forwards;
-                opacity: 0;
+                display: flex;
+                flex-direction: column;
             }
 
-            .report-card:nth-child(1) { animation-delay: 0.1s; }
-            .report-card:nth-child(2) { animation-delay: 0.2s; }
-            .report-card:nth-child(3) { animation-delay: 0.3s; }
-            .report-card:nth-child(4) { animation-delay: 0.4s; }
-            .report-card:nth-child(5) { animation-delay: 0.5s; }
-            .report-card:nth-child(6) { animation-delay: 0.6s; }
-
-            @keyframes fadeInUp {
-                from {
-                    opacity: 0;
-                    transform: translateY(20px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            .report-card:hover {
-                transform: translateY(-8px);
+            .card:hover {
+                transform: translateY(-5px);
                 box-shadow: var(--shadow-xl);
                 border-color: var(--sky-primary);
             }
 
             .card-header {
+                padding: 16px 20px;
                 background: var(--sky-gradient);
-                padding: 18px 20px;
                 color: white;
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: 10px;
                 font-weight: 600;
-                font-size: 18px;
-                position: relative;
-                overflow: hidden;
+                font-size: 15px;
+                letter-spacing: -0.3px;
             }
 
-            .card-header::after {
-                content: '';
-                position: absolute;
-                top: -50%;
-                right: -50%;
-                width: 100%;
-                height: 100%;
-                background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+            .card-header .icon-circle {
+                width: 34px;
+                height: 34px;
+                background: rgba(255, 255, 255, 0.2);
                 border-radius: 50%;
-            }
-
-            .card-header i {
-                font-size: 24px;
-                position: relative;
-                z-index: 1;
-            }
-
-            .card-content {
-                padding: 20px;
-            }
-
-            .report-links {
-                list-style: none;
-            }
-
-            .report-links li {
-                margin-bottom: 10px;
-                border-bottom: 1px solid var(--gray-200);
-                padding-bottom: 8px;
-            }
-
-            .report-links li:last-child {
-                border-bottom: none;
-                margin-bottom: 0;
-                padding-bottom: 0;
-            }
-
-            .report-links a {
-                color: var(--gray-700);
-                text-decoration: none;
-                font-size: 14px;
                 display: flex;
                 align-items: center;
-                gap: 12px;
-                padding: 8px 12px;
+                justify-content: center;
+                font-size: 14px;
+            }
+
+            .card-body {
+                padding: 12px 16px;
+                flex: 1;
+                overflow-y: auto;
+                max-height: 450px;
+            }
+
+            .card-body::-webkit-scrollbar {
+                width: 4px;
+            }
+
+            .card-body::-webkit-scrollbar-track {
+                background: var(--gray-100);
                 border-radius: 10px;
-                transition: var(--transition);
             }
 
-            .report-links a:hover {
+            .card-body::-webkit-scrollbar-thumb {
+                background: var(--sky-primary);
+                border-radius: 10px;
+            }
+
+            .nav-list {
+                list-style: none;
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+
+            .nav-list li a {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 9px 12px;
+                border-radius: var(--radius-sm);
+                color: var(--gray-700);
+                text-decoration: none;
+                font-size: 13px;
+                font-weight: 500;
+                transition: var(--transition);
+                border: 1px solid transparent;
+            }
+
+            .nav-list li a:hover {
                 background: var(--sky-light);
-                color: var(--sky-dark);
-                transform: translateX(5px);
+                color: var(--sky-darker);
+                border-color: var(--sky-primary);
+                transform: translateX(3px);
             }
 
-            .report-links a i {
-                font-size: 16px;
-                color: var(--sky-primary);
-                width: 20px;
-                text-align: center;
+            .nav-list li a .link-icon {
+                width: 30px;
+                height: 30px;
+                background: var(--gray-100);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 13px;
+                flex-shrink: 0;
                 transition: var(--transition);
+                color: var(--gray-500);
             }
 
-            .report-links a:hover i {
-                transform: scale(1.2);
+            .nav-list li a:hover .link-icon {
+                background: var(--sky-gradient);
+                color: white;
             }
 
-            .version-badge {
+            .badge {
                 display: inline-block;
                 background: var(--sky-gradient);
                 color: white !important;
-                padding: 3px 10px;
-                border-radius: 30px;
+                padding: 2px 8px;
+                border-radius: 20px;
                 font-size: 10px;
                 font-weight: 600;
-                margin-left: 8px;
-                text-decoration: none !important;
-                letter-spacing: 0.5px;
+                margin-left: 4px;
+            }
+
+            .sub-links {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin-left: 40px;
+                margin-top: 4px;
+                margin-bottom: 4px;
+            }
+
+            .sub-links a {
+                font-size: 11px !important;
+                padding: 4px 10px !important;
+                background: var(--gray-50);
+                border-radius: 20px !important;
+                border: 1px solid var(--gray-200) !important;
+                display: inline-flex !important;
+                align-items: center;
+                gap: 4px !important;
+            }
+
+            .sub-links a:hover {
+                background: var(--sky-light) !important;
+                border-color: var(--sky-primary) !important;
             }
 
             /* Server Stats Section */
-            .server-stats-section {
-                background: white;
-                border-radius: var(--border-radius);
-                padding: 25px;
-                margin-bottom: 30px;
+            .server-section {
+                background: var(--white);
+                border-radius: var(--radius-xl);
+                padding: 24px;
+                margin-bottom: 24px;
                 box-shadow: var(--shadow-lg);
                 border: 1px solid rgba(255, 255, 255, 0.2);
-                animation: fadeInUp 0.6s ease-out forwards;
-                opacity: 0;
-                animation-delay: 0.7s;
             }
 
-            .server-stats-title {
+            .section-header {
                 display: flex;
                 align-items: center;
                 gap: 12px;
                 margin-bottom: 20px;
-                padding-bottom: 15px;
+                padding-bottom: 16px;
                 border-bottom: 2px solid var(--gray-100);
+                flex-wrap: wrap;
             }
 
-            .server-stats-title i {
-                font-size: 24px;
-                color: var(--sky-primary);
-                background: var(--sky-light);
-                padding: 10px;
-                border-radius: 12px;
-            }
-
-            .server-stats-title h2 {
-                font-size: 20px;
-                font-weight: 600;
+            .section-header h2 {
+                font-size: 18px;
+                font-weight: 700;
                 color: var(--gray-800);
+                letter-spacing: -0.3px;
                 flex: 1;
             }
 
-            .server-stats-title a {
-                color: var(--sky-dark);
-                text-decoration: none;
-                font-size: 14px;
-                font-weight: 500;
-                padding: 8px 20px;
+            .section-header .icon-bg {
+                width: 42px;
+                height: 42px;
                 background: var(--sky-light);
-                border-radius: 30px;
-                transition: var(--transition);
+                border-radius: var(--radius);
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                justify-content: center;
+                color: var(--sky-dark);
+                font-size: 18px;
             }
 
-            .server-stats-title a:hover {
+            .btn-toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 16px;
+                background: var(--sky-light);
+                border: 1px solid var(--sky-medium);
+                border-radius: 50px;
+                color: var(--sky-dark);
+                text-decoration: none;
+                font-size: 12px;
+                font-weight: 500;
+                transition: var(--transition);
+            }
+
+            .btn-toggle:hover {
                 background: var(--sky-gradient);
                 color: white;
-                transform: translateX(5px);
+                border-color: var(--sky-primary);
             }
 
-            .table-container {
+            .table-wrapper {
                 overflow-x: auto;
-                border-radius: 12px;
+                border-radius: var(--radius);
                 border: 1px solid var(--gray-200);
             }
 
             .server-table {
                 width: 100%;
                 border-collapse: collapse;
-                min-width: 1200px;
+                min-width: 1100px;
             }
 
-            .server-table th {
+            .server-table thead th {
                 background: var(--sky-gradient);
                 color: white;
                 font-weight: 600;
-                font-size: 12px;
-                padding: 16px 12px;
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                padding: 12px 10px;
                 text-align: left;
                 white-space: nowrap;
-                position: relative;
             }
 
-            .server-table th:first-child {
-                border-radius: 12px 0 0 0;
+            .server-table thead th:first-child {
+                border-radius: var(--radius-sm) 0 0 0;
             }
 
-            .server-table th:last-child {
-                border-radius: 0 12px 0 0;
+            .server-table thead th:last-child {
+                border-radius: 0 var(--radius-sm) 0 0;
             }
 
-            .server-table td {
-                padding: 14px 12px;
-                font-size: 13px;
-                border-bottom: 1px solid var(--gray-200);
+            .server-table tbody td {
+                padding: 10px;
+                font-size: 12px;
+                border-bottom: 1px solid var(--gray-100);
                 color: var(--gray-700);
-            }
-
-            .server-table tbody tr {
-                transition: var(--transition);
             }
 
             .server-table tbody tr:hover {
-                background: var(--sky-light);
+                background: #f0f9ff;
             }
 
-            .server-table tbody tr:last-child td {
-                border-bottom: none;
-            }
-
-            .server-table td a {
+            .server-table tbody td a {
                 color: var(--sky-dark);
                 text-decoration: none;
                 font-weight: 600;
-                transition: var(--transition);
             }
 
-            .server-table td a:hover {
-                color: var(--sky-darker);
+            .server-table tbody td a:hover {
                 text-decoration: underline;
+                color: var(--sky-darker);
             }
 
-            /* Status Badges */
-            .status-badge {
+            .status-pill {
                 display: inline-block;
-                padding: 6px 14px;
-                border-radius: 30px;
-                font-size: 11px;
+                padding: 3px 10px;
+                border-radius: 20px;
+                font-size: 10px;
                 font-weight: 600;
                 text-transform: uppercase;
-                letter-spacing: 0.5px;
+                letter-spacing: 0.3px;
             }
 
-            .status-active {
+            .status-pill.active {
                 background: var(--success-light);
                 color: var(--success-dark);
-                border: 1px solid #86efac;
             }
 
-            .status-inactive {
+            .status-pill.inactive {
                 background: var(--danger-light);
                 color: var(--danger-dark);
-                border: 1px solid #fecaca;
             }
 
-            /* Custom Reports Section */
-            .custom-reports-section {
-                background: white;
-                border-radius: var(--border-radius);
-                padding: 25px;
-                margin-bottom: 30px;
-                box-shadow: var(--shadow-lg);
-                animation: fadeInUp 0.6s ease-out forwards;
-                opacity: 0;
-                animation-delay: 0.8s;
+            .row-warning {
+                background-color: #fef2f2 !important;
             }
 
-            .custom-reports-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-                gap: 15px;
-                margin-top: 20px;
+            .row-info {
+                background-color: #f0fdf4 !important;
             }
 
-            .custom-report-item {
-                background: var(--gray-50);
-                border-radius: 12px;
-                padding: 15px;
-                transition: var(--transition);
-                border: 1px solid var(--gray-200);
-            }
-
-            .custom-report-item:hover {
-                border-color: var(--sky-primary);
-                transform: translateY(-3px);
-                box-shadow: var(--shadow-md);
-                background: white;
-            }
-
-            .custom-report-item a {
-                color: var(--gray-700);
-                text-decoration: none;
+            .link-badge {
+                display: inline-block;
+                padding: 4px 12px;
+                background: var(--sky-gradient);
+                color: white !important;
+                border-radius: 20px;
+                font-size: 11px;
                 font-weight: 500;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-            }
-
-            .custom-report-item a i {
-                color: var(--sky-primary);
-                font-size: 20px;
-            }
-
-            /* Admin Utilities */
-            .admin-utilities {
-                text-align: right;
-                margin-top: 20px;
-                animation: fadeInUp 0.6s ease-out forwards;
-                opacity: 0;
-                animation-delay: 0.9s;
-            }
-
-            .admin-utilities a {
-                background: linear-gradient(135deg, #f97316, #ea580c);
-                color: white;
-                padding: 14px 35px;
-                border-radius: 50px;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 15px;
-                display: inline-flex;
-                align-items: center;
-                gap: 12px;
+                text-decoration: none !important;
                 transition: var(--transition);
+            }
+
+            .link-badge:hover {
+                background: var(--sky-darker);
+                transform: translateY(-1px);
+            }
+
+            /* Custom Reports */
+            .custom-section {
+                background: var(--white);
+                border-radius: var(--radius-xl);
+                padding: 24px;
+                margin-bottom: 24px;
                 box-shadow: var(--shadow-lg);
                 border: 1px solid rgba(255, 255, 255, 0.2);
             }
 
-            .admin-utilities a:hover {
-                transform: translateY(-5px);
+            .custom-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 12px;
+                margin-top: 16px;
+            }
+
+            .custom-item {
+                background: var(--gray-50);
+                border-radius: var(--radius);
+                padding: 14px 16px;
+                transition: var(--transition);
+                border: 1px solid var(--gray-200);
+            }
+
+            .custom-item:hover {
+                border-color: var(--sky-primary);
+                transform: translateY(-2px);
+                box-shadow: var(--shadow-md);
+                background: white;
+            }
+
+            .custom-item a {
+                color: var(--gray-700);
+                text-decoration: none;
+                font-weight: 500;
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .custom-item a .ci-icon {
+                width: 34px;
+                height: 34px;
+                background: var(--sky-gradient);
+                color: white;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                flex-shrink: 0;
+            }
+
+            /* Admin Utilities */
+            .admin-util {
+                text-align: right;
+                margin-top: 20px;
+            }
+
+            .btn-admin {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                background: var(--sky-gradient);
+                color: white;
+                padding: 12px 28px;
+                border-radius: 50px;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 14px;
+                transition: var(--transition);
+                box-shadow: var(--shadow-lg);
+            }
+
+            .btn-admin:hover {
+                transform: translateY(-3px);
                 box-shadow: var(--shadow-xl);
             }
 
-            /* Time row styling */
-            .time-row {
-                background-color: var(--success-light);
-            }
-
-            .warning-row {
-                background-color: var(--danger-light);
-            }
-
-            /* Responsive Design */
-            @media (max-width: 1024px) {
-                .dashboard-header {
-                    flex-direction: column;
-                    text-align: center;
-                }
-                
-                .header-stats {
-                    margin-left: 0;
-                    justify-content: center;
-                }
-                
-                .reports-grid {
+            /* Responsive */
+            @media (max-width: 1200px) {
+                .cards-grid {
                     grid-template-columns: repeat(2, 1fr);
                 }
             }
 
             @media (max-width: 768px) {
-                body {
-                    padding: 16px;
-                }
-                
-                .reports-grid {
+                .cards-grid {
                     grid-template-columns: 1fr;
                 }
-                
-                .server-stats-title {
+                .header {
                     flex-direction: column;
-                    align-items: flex-start;
-                    gap: 10px;
-                }
-                
-                .server-stats-title a {
-                    align-self: flex-start;
-                }
-            }
-
-            @media (max-width: 480px) {
-                .dashboard-header {
-                    padding: 20px;
-                }
-                
-                .header-stats {
-                    flex-direction: column;
-                    gap: 10px;
-                }
-                
-                .header-stat {
                     text-align: center;
                 }
-            }
-
-            /* Loading Animation */
-            .loading-pulse {
-                animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            }
-
-            @keyframes pulse {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.5; }
+                .header-stats {
+                    margin-left: 0;
+                    justify-content: center;
+                }
             }
         </style>
-        
-        <!-- Font Awesome -->
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-        
-        <!-- Google Fonts -->
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-        
+        </head>
         <body>
+
         <div class="dashboard">
             <!-- Header -->
-            <div class="dashboard-header">
+            <div class="header">
                 <div class="header-icon">
                     <i class="fas fa-chart-pie"></i>
                 </div>
-                <div class="header-title">
+                <div class="header-info">
                     <h1><?php echo _QXZ("Server Stats and Reports"); ?></h1>
-                    <p>
-                        <i class="fas fa-circle"></i> <?php echo _QXZ("Real-time server monitoring"); ?>
-                        <i class="fas fa-circle" style="margin-left: 10px;"></i> <?php echo _QXZ("Comprehensive analytics"); ?>
-                    </p>
+                    <div class="subtitle">
+                        <span><?php echo _QXZ("Real-time server monitoring"); ?></span>
+                        <i class="fas fa-circle"></i>
+                        <span><?php echo _QXZ("Comprehensive analytics"); ?></span>
+                        <i class="fas fa-circle"></i>
+                        <span><?php echo _QXZ("Agent performance tracking"); ?></span>
+                    </div>
                 </div>
                 <div class="header-stats">
-                    <div class="header-stat">
-                        <div class="label"><?php echo _QXZ("Updates"); ?></div>
-                        <div class="value"><?php echo number_format($list_update_count); ?></div>
+                    <div class="stat-item">
+                        <div class="stat-label"><?php echo _QXZ("List Updates"); ?></div>
+                        <div class="stat-value"><?php echo number_format($list_update_count); ?></div>
                     </div>
-                    <div class="header-stat">
-                        <div class="label"><?php echo _QXZ("Inventory"); ?></div>
-                        <div class="value"><?php echo number_format($inventory_report_count); ?></div>
+                    <div class="stat-item">
+                        <div class="stat-label"><?php echo _QXZ("Inventory Reports"); ?></div>
+                        <div class="stat-value"><?php echo number_format($inventory_report_count); ?></div>
                     </div>
                 </div>
-                <a href="admin.php" class="system-summary-link">
+                <a href="admin.php" class="btn-system-summary">
                     <i class="fas fa-chart-line"></i>
                     <?php echo _QXZ("System Summary"); ?>
                 </a>
             </div>
 
-            <!-- Reports Grid -->
-            <div class="reports-grid">
-                <!-- Real-Time Reports Card -->
-                <div class="report-card">
+            <!-- Cards Grid -->
+            <div class="cards-grid">
+                
+                <!-- Card 1: Real-Time Reports -->
+                <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-clock"></i>
+                        <span class="icon-circle"><i class="fas fa-clock"></i></span>
                         <?php echo _QXZ("Real-Time Reports"); ?>
                     </div>
-                    <div class="card-content">
-                        <ul class="report-links">
+                    <div class="card-body">
+                        <ul class="nav-list">
                             <?php if ((preg_match("/VERM Reports/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="../VERM/VERM_admin.php"><i class="fas fa-chart-pie"></i> <?php echo _QXZ("VERM - Enhanced Reporting Module"); ?></a></li>
+                            <li><a href="../VERM/VERM_admin.php"><span class="link-icon"><i class="fas fa-chart-pie"></i></span> <?php echo _QXZ("VERM - Enhanced Reporting Module"); ?></a></li>
                             <?php endif; ?>
-                            
                             <?php if ((preg_match("/Real-Time Main Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="realtime_report.php"><i class="fas fa-desktop"></i> <?php echo _QXZ("Real-Time Main Report"); ?></a></li>
+                            <li><a href="realtime_report.php"><span class="link-icon"><i class="fas fa-desktop"></i></span> <?php echo _QXZ("Real-Time Main Report"); ?></a></li>
                             <?php endif; ?>
-                            
                             <?php if ((preg_match("/Real-Time Campaign Summary/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="AST_timeonVDADallSUMMARY.php"><i class="fas fa-bullhorn"></i> <?php echo _QXZ("Real-Time Campaign Summary"); ?></a></li>
+                            <li><a href="AST_timeonVDADallSUMMARY.php"><span class="link-icon"><i class="fas fa-bullhorn"></i></span> <?php echo _QXZ("Real-Time Campaign Summary"); ?></a></li>
                             <?php endif; ?>
-                            
                             <?php if ((preg_match("/Real-Time Whiteboard Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="AST_rt_whiteboard_rpt.php"><i class="fas fa-chalkboard"></i> <?php echo _QXZ("Real-Time Whiteboard Report"); ?></a></li>
+                            <li><a href="AST_rt_whiteboard_rpt.php"><span class="link-icon"><i class="fas fa-chalkboard"></i></span> <?php echo _QXZ("Real-Time Whiteboard Report"); ?></a></li>
                             <?php endif; ?>
                         </ul>
                     </div>
                 </div>
 
-                <!-- Inbound and Outbound Reports Card -->
-                <div class="report-card">
+                <!-- Card 2: Inbound & Outbound Reports -->
+                <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-phone-alt"></i>
-                        <?php echo _QXZ("Inbound & Outbound"); ?>
+                        <span class="icon-circle"><i class="fas fa-phone-alt"></i></span>
+                        <?php echo _QXZ("Inbound & Outbound Reports"); ?>
                     </div>
-                    <div class="card-content">
-                        <ul class="report-links">
+                    <div class="card-body">
+                        <ul class="nav-list">
                             <?php if ((preg_match("/VERM Reports/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="../VERM/VERM_admin.php"><i class="fas fa-chart-pie"></i> <?php echo _QXZ("VERM - Enhanced Reporting Module"); ?></a></li>
+                            <li><a href="../VERM/VERM_admin.php"><span class="link-icon"><i class="fas fa-chart-pie"></i></span> <?php echo _QXZ("VERM - Enhanced Reporting Module"); ?></a></li>
                             <?php endif; ?>
-                            
                             <?php if ((preg_match("/Inbound Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="AST_CLOSERstats.php"><i class="fas fa-arrow-down"></i> <?php echo _QXZ("Inbound Report"); ?> <span class="version-badge">v2</span></a></li>
+                            <li>
+                                <a href="AST_CLOSERstats.php"><span class="link-icon"><i class="fas fa-arrow-down"></i></span> <?php echo _QXZ("Inbound Report"); ?> <span class="badge">v2</span></a>
+                                <div class="sub-links">
+                                    <a href="AST_CLOSERstats_v2.php"><i class="fas fa-chart-line"></i> <?php echo _QXZ("v2"); ?></a>
+                                </div>
+                            </li>
                             <?php endif; ?>
-                            
+                            <?php if ((preg_match("/Inbound Report by DID/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_CLOSERstats.php?DID=Y"><span class="link-icon"><i class="fas fa-fingerprint"></i></span> <?php echo _QXZ("Inbound Report by DID"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Inbound Service Level Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_CLOSER_service_level.php"><span class="link-icon"><i class="fas fa-chart-simple"></i></span> <?php echo _QXZ("Inbound Service Level Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Inbound Summary Hourly Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_CLOSERsummary_hourly.php"><span class="link-icon"><i class="fas fa-hourglass-half"></i></span> <?php echo _QXZ("Inbound Summary Hourly Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Inbound Daily Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_inbound_daily_report.php"><span class="link-icon"><i class="fas fa-calendar-day"></i></span> <?php echo _QXZ("Inbound Daily Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Inbound DID Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li>
+                                <a href="AST_DIDstats.php"><span class="link-icon"><i class="fas fa-phone-volume"></i></span> <?php echo _QXZ("Inbound DID Report"); ?></a>
+                                <div class="sub-links">
+                                    <?php if ((preg_match("/Inbound DID Summary Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                    <a href="AST_DIDstats_v2.php"><i class="fas fa-chart-bar"></i> <?php echo _QXZ("DID Summary"); ?></a>
+                                    <?php endif; ?>
+                                    <?php if ((preg_match("/Agent DID Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                    <a href="AST_agentDIDstats.php"><i class="fas fa-headset"></i> <?php echo _QXZ("Agent DID"); ?></a>
+                                    <?php endif; ?>
+                                </div>
+                            </li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Inbound IVR Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_IVRstats.php"><span class="link-icon"><i class="fas fa-diagram-project"></i></span> <?php echo _QXZ("Inbound IVR Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Inbound Forecasting Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li>
+                                <a href="AST_inbound_forecasting.php"><span class="link-icon"><i class="fas fa-chart-line"></i></span> <?php echo _QXZ("Inbound Forecasting Report"); ?></a>
+                                <?php if ((preg_match("/Advanced Forecasting Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <div class="sub-links"><a href="Erlang_report.php"><i class="fas fa-calculator"></i> <?php echo _QXZ("Advanced"); ?></a></div>
+                                <?php endif; ?>
+                            </li>
+                            <?php endif; ?>
                             <?php if ((preg_match("/Outbound Calling Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="AST_VDADstats.php"><i class="fas fa-arrow-up"></i> <?php echo _QXZ("Outbound Calling Report"); ?></a></li>
+                            <li><a href="AST_VDADstats.php"><span class="link-icon"><i class="fas fa-arrow-up"></i></span> <?php echo _QXZ("Outbound Calling Report"); ?></a></li>
                             <?php endif; ?>
-                            
+                            <?php if ((preg_match("/Outbound Summary Interval Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_OUTBOUNDsummary_interval.php"><span class="link-icon"><i class="fas fa-chart-column"></i></span> <?php echo _QXZ("Outbound Summary Interval Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Outbound IVR Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li>
+                                <a href="AST_IVRstats.php?type=outbound"><span class="link-icon"><i class="fas fa-diagram-project"></i></span> <?php echo _QXZ("Outbound IVR Report"); ?></a>
+                                <div class="sub-links">
+                                    <?php if ($LOGexport_reports >= 1 && ((preg_match("/Export Calls Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports)))): ?>
+                                    <a href="call_report_export.php?ivr_export=YES"><i class="fas fa-file-export"></i> <?php echo _QXZ("Export"); ?></a>
+                                    <?php endif; ?>
+                                    <?php if ((preg_match("/Callmenu Survey Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                    <a href="AST_CMstats.php"><i class="fas fa-poll"></i> <?php echo _QXZ("Callmenu Agent"); ?></a>
+                                    <?php endif; ?>
+                                </div>
+                            </li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Outbound Lead Source Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_source_vlc_status_report.php"><span class="link-icon"><i class="fas fa-database"></i></span> <?php echo _QXZ("Outbound Lead Source Report"); ?></a></li>
+                            <?php endif; ?>
                             <?php if ((preg_match("/Fronter - Closer Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="fcstats.php"><i class="fas fa-exchange-alt"></i> <?php echo _QXZ("Fronter - Closer Report"); ?> <span class="version-badge">Detail</span></a></li>
+                            <li>
+                                <a href="fcstats.php"><span class="link-icon"><i class="fas fa-handshake"></i></span> <?php echo _QXZ("Fronter - Closer Report"); ?></a>
+                                <?php if ((preg_match("/Fronter - Closer Detail Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <div class="sub-links"><a href="fcstats_detail.php"><i class="fas fa-list-ul"></i> <?php echo _QXZ("Detail"); ?></a></div>
+                                <?php endif; ?>
+                            </li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Lists Pass Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_LISTS_pass_report.php"><span class="link-icon"><i class="fas fa-list-check"></i></span> <?php echo _QXZ("Lists Pass Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Lists Campaign Statuses Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_LISTS_campaign_stats.php"><span class="link-icon"><i class="fas fa-chart-pie"></i></span> <?php echo _QXZ("Lists Campaign Statuses Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Called Counts List IDs Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="called_counts_multilist_report.php"><span class="link-icon"><i class="fas fa-chart-line"></i></span> <?php echo _QXZ("Called Counts List IDs Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Campaign Status List Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_campaign_status_list_report.php"><span class="link-icon"><i class="fas fa-chart-simple"></i></span> <?php echo _QXZ("Campaign Status List Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if (((preg_match("/Dialer Inventory Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))) && ($inventory_report_count > 0)): ?>
+                            <li><a href="AST_dialer_inventory_report.php"><span class="link-icon"><i class="fas fa-boxes"></i></span> <?php echo _QXZ("Dialer Inventory Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ($SSemail_enabled > 0): ?>
+                                <?php if (((preg_match("/Inbound Report/", $LOGallowed_reports)) && (preg_match("/Inbound Email Report/", $LOGallowed_reports))) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <li><a href="AST_CLOSERstats_v2.php?EMAIL=Y"><span class="link-icon"><i class="fas fa-envelope"></i></span> <?php echo _QXZ("Inbound Email Report"); ?></a></li>
+                                <?php endif; ?>
+                                <?php if ((preg_match("/Email Log Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <li><a href="AST_email_log_report.php"><span class="link-icon"><i class="fas fa-envelope-open-text"></i></span> <?php echo _QXZ("Email Log Report"); ?></a></li>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                            <?php if ($SSallow_chats > 0): ?>
+                                <?php if (((preg_match("/Inbound Report/", $LOGallowed_reports)) && (preg_match("/Inbound Chat Report/", $LOGallowed_reports))) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <li><a href="AST_CLOSERstats_v2.php?CHAT=Y"><span class="link-icon"><i class="fas fa-comments"></i></span> <?php echo _QXZ("Inbound Chat Report"); ?></a></li>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                            <?php if ($LOGexport_reports >= 1): ?>
+                                <?php if ((preg_match("/Export Calls Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <li><a href="call_report_export.php"><span class="link-icon"><i class="fas fa-file-export"></i></span> <?php echo _QXZ("Export Calls Report"); ?></a></li>
+                                <?php endif; ?>
+                                <?php if ((preg_match("/Export Leads Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <li><a href="lead_report_export.php"><span class="link-icon"><i class="fas fa-file-export"></i></span> <?php echo _QXZ("Export Leads Report"); ?></a></li>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </ul>
                     </div>
                 </div>
 
-                <!-- Agent Reports Card -->
-                <div class="report-card">
+                <!-- Card 3: Agent Reports -->
+                <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-users"></i>
+                        <span class="icon-circle"><i class="fas fa-users"></i></span>
                         <?php echo _QXZ("Agent Reports"); ?>
                     </div>
-                    <div class="card-content">
-                        <ul class="report-links">
+                    <div class="card-body">
+                        <ul class="nav-list">
                             <?php if ((preg_match("/VERM Reports/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="../VERM/VERM_admin.php"><i class="fas fa-chart-pie"></i> <?php echo _QXZ("VERM - Enhanced Reporting Module"); ?></a></li>
+                            <li><a href="../VERM/VERM_admin.php"><span class="link-icon"><i class="fas fa-chart-pie"></i></span> <?php echo _QXZ("VERM - Enhanced Reporting Module"); ?></a></li>
                             <?php endif; ?>
-                            
                             <?php if ((preg_match("/Agent Time Detail/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="AST_agent_time_detail.php"><i class="fas fa-hourglass-half"></i> <?php echo _QXZ("Agent Time Detail"); ?></a></li>
+                            <li><a href="AST_agent_time_detail.php"><span class="link-icon"><i class="fas fa-hourglass-half"></i></span> <?php echo _QXZ("Agent Time Detail"); ?></a></li>
                             <?php endif; ?>
-                            
+                            <?php if ((preg_match("/Agent Status Detail/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li>
+                                <a href="AST_agent_status_detail.php"><span class="link-icon"><i class="fas fa-chart-line"></i></span> <?php echo _QXZ("Agent Status Detail"); ?></a>
+                                <?php if ((preg_match("/Agent Inbound Status Summary/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <div class="sub-links"><a href="AST_agent_inbound_status.php"><i class="fas fa-arrow-down"></i> <?php echo _QXZ("Inbound Summary"); ?></a></div>
+                                <?php endif; ?>
+                            </li>
+                            <?php endif; ?>
                             <?php if ((preg_match("/Agent Performance Detail/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="AST_agent_performance_detail.php"><i class="fas fa-tachometer-alt"></i> <?php echo _QXZ("Agent Performance Detail"); ?></a></li>
+                            <li><a href="AST_agent_performance_detail.php"><span class="link-icon"><i class="fas fa-tachometer-alt"></i></span> <?php echo _QXZ("Agent Performance Detail"); ?></a></li>
                             <?php endif; ?>
-                            
                             <?php if ((preg_match("/Team Performance Detail/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="AST_team_performance_detail.php"><i class="fas fa-users-cog"></i> <?php echo _QXZ("Team Performance Detail"); ?></a></li>
+                            <li><a href="AST_team_performance_detail.php"><span class="link-icon"><i class="fas fa-users-cog"></i></span> <?php echo _QXZ("Team Performance Detail"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Performance Comparison Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_performance_comparison_report.php"><span class="link-icon"><i class="fas fa-chart-line"></i></span> <?php echo _QXZ("Performance Comparison Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/Single Agent Daily$/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li>
+                                <a href="AST_agent_days_detail.php"><span class="link-icon"><i class="fas fa-user-clock"></i></span> <?php echo _QXZ("Single Agent Daily"); ?></a>
+                                <?php if ((preg_match("/Single Agent Daily Time/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <div class="sub-links"><a href="AST_agent_days_time.php"><i class="fas fa-hourglass-start"></i> <?php echo _QXZ("Time"); ?></a></div>
+                                <?php endif; ?>
+                            </li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/User Group Login Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_usergroup_login_report.php"><span class="link-icon"><i class="fas fa-sign-in-alt"></i></span> <?php echo _QXZ("User Group Login Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/User Group Hourly Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li>
+                                <a href="AST_user_group_hourly_detail.php"><span class="link-icon"><i class="fas fa-chart-bar"></i></span> <?php echo _QXZ("User Group Hourly Report"); ?></a>
+                                <div class="sub-links"><a href="AST_user_group_hourly_detail_v2.php"><i class="fas fa-chart-line"></i> <?php echo _QXZ("v2"); ?></a></div>
+                            </li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/User Stats/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="user_stats.php"><span class="link-icon"><i class="fas fa-chart-simple"></i></span> <?php echo _QXZ("User Stats"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/User Time Sheet/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_agent_time_sheet.php"><span class="link-icon"><i class="fas fa-file-invoice"></i></span> <?php echo _QXZ("User Time Sheet"); ?></a></li>
                             <?php endif; ?>
                         </ul>
                     </div>
                 </div>
 
-                <!-- Time Clock Reports Card -->
-                <div class="report-card">
+                <!-- Card 4: Time Clock Reports -->
+                <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-clock"></i>
+                        <span class="icon-circle"><i class="fas fa-clock"></i></span>
                         <?php echo _QXZ("Time Clock Reports"); ?>
                     </div>
-                    <div class="card-content">
-                        <ul class="report-links">
+                    <div class="card-body">
+                        <ul class="nav-list">
                             <?php if ((preg_match("/User Timeclock Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="timeclock_report.php"><i class="fas fa-user-clock"></i> <?php echo _QXZ("User Timeclock Report"); ?></a></li>
+                            <li><a href="timeclock_report.php"><span class="link-icon"><i class="fas fa-user-clock"></i></span> <?php echo _QXZ("User Timeclock Report"); ?></a></li>
                             <?php endif; ?>
-                            
                             <?php if ((preg_match("/User Group Timeclock Status Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="timeclock_status.php"><i class="fas fa-users-clock"></i> <?php echo _QXZ("User Group Timeclock Status"); ?></a></li>
+                            <li><a href="timeclock_status.php"><span class="link-icon"><i class="fas fa-users"></i></span> <?php echo _QXZ("User Group Timeclock Status Report"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ((preg_match("/User Timeclock Detail Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                            <li><a href="AST_agent_timeclock_detail.php"><span class="link-icon"><i class="fas fa-list-ul"></i></span> <?php echo _QXZ("User Timeclock Detail Report"); ?></a></li>
                             <?php endif; ?>
                         </ul>
                     </div>
                 </div>
 
-                <!-- Other Reports Card -->
-                <div class="report-card">
+                <!-- Card 5: Other Reports & Links -->
+                <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-chart-bar"></i>
+                        <span class="icon-circle"><i class="fas fa-link"></i></span>
                         <?php echo _QXZ("Other Reports & Links"); ?>
                     </div>
-                    <div class="card-content">
-                        <ul class="report-links">
+                    <div class="card-body">
+                        <ul class="nav-list">
                             <?php if ((preg_match("/Server Performance Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="AST_server_performance.php"><i class="fas fa-server"></i> <?php echo _QXZ("Server Performance Report"); ?></a></li>
+                            <li><a href="AST_server_performance.php"><span class="link-icon"><i class="fas fa-server"></i></span> <?php echo _QXZ("Server Performance Report"); ?></a></li>
                             <?php endif; ?>
-                            
                             <?php if ((preg_match("/Maximum System Stats/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
-                            <li><a href="admin.php?ADD=999992&stage=TOTAL"><i class="fas fa-chart-line"></i> <?php echo _QXZ("Maximum System Stats"); ?></a></li>
+                            <li><a href="admin.php?ADD=999992&stage=TOTAL"><span class="link-icon"><i class="fas fa-chart-line"></i></span> <?php echo _QXZ("Maximum System Stats"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if (($LOGuser_level >= 9) and ((preg_match("/Administration Change Log/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports)))): ?>
+                            <li><a href="<?php echo $PHP_SELF; ?>?ADD=700000000000000"><span class="link-icon"><i class="fas fa-history"></i></span> <?php echo _QXZ("Administration Change Log"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ($SSenable_queuemetrics_logging > 0): ?>
+                            <li><a href="<?php echo htmlspecialchars($queuemetrics_url_LU); ?>"><span class="link-icon"><i class="fas fa-chart-line"></i></span> <?php echo _QXZ("QueueMetrics Reports"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ($SSenable_vtiger_integration > 0): ?>
+                            <li><a href="<?php echo htmlspecialchars($vtiger_url_LU); ?>"><span class="link-icon"><i class="fas fa-building"></i></span> <?php echo _QXZ("VtigerCRM Home"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if (($list_update_count > 0) and ((preg_match("/List Update Stats/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports)))): ?>
+                            <li><a href="./AST_LIST_UPDATEstats.php"><span class="link-icon"><i class="fas fa-sync-alt"></i></span> <?php echo _QXZ("List Update Stats"); ?></a></li>
+                            <?php endif; ?>
+                            <?php if ($SScallcard_enabled > 0): ?>
+                                <?php if ((preg_match("/CallCard Search/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <li><a href="callcard_admin.php?action=SEARCH"><span class="link-icon"><i class="fas fa-credit-card"></i></span> <?php echo _QXZ("CallCard Search"); ?></a></li>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                            <?php if ($SSqc_features_active > 0): ?>
+                                <?php if ((preg_match("/Quality Control Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                <li><a href="AST_quality_control_report.php"><span class="link-icon"><i class="fas fa-clipboard-check"></i></span> <?php echo _QXZ("Quality Control Report"); ?></a></li>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </ul>
                     </div>
@@ -56001,16 +56175,16 @@ if ($ADD == 999999) {
                     $allowed_custom_reports = $allowed_rpt_row[0];
                     $allowed_reports_array = explode("|", $allowed_custom_reports);
                     if (count($allowed_reports_array) > 0) {
-                        $report_links_stmt = "SELECT report_name, domain, path_name, custom_variables FROM vicidial_custom_reports WHERE report_name IN ('" . implode("','", $allowed_reports_array) . "')";
+                        $report_links_stmt = "SELECT report_name, domain, path_name, custom_variables FROM vicidial_custom_reports WHERE report_name IN ('" . implode("','", array_map('addslashes', $allowed_reports_array)) . "')";
                         $report_links_rslt = mysql_to_mysqli($report_links_stmt, $link);
                         if (mysqli_num_rows($report_links_rslt) > 0) {
                             ?>
-                            <div class="custom-reports-section">
-                                <div class="server-stats-title">
-                                    <i class="fas fa-star"></i>
+                            <div class="custom-section">
+                                <div class="section-header">
+                                    <div class="icon-bg"><i class="fas fa-star"></i></div>
                                     <h2><?php echo _QXZ("Custom Reports"); ?></h2>
                                 </div>
-                                <div class="custom-reports-grid">
+                                <div class="custom-grid">
                                     <?php 
                                     while ($report_links_row = mysqli_fetch_array($report_links_rslt)) {
                                         $domain = $report_links_row["domain"];
@@ -56018,9 +56192,9 @@ if ($ADD == 999999) {
                                         $custom_variables = ConvertPresets($report_links_row["custom_variables"]);
                                         $report_name = $report_links_row["report_name"];
                                     ?>
-                                    <div class="custom-report-item">
-                                        <a href="<?php echo $domain . $path_name . "?" . $custom_variables; ?>">
-                                            <i class="fas fa-file-alt"></i>
+                                    <div class="custom-item">
+                                        <a href="<?php echo htmlspecialchars($domain . $path_name . "?" . $custom_variables); ?>">
+                                            <span class="ci-icon"><i class="fas fa-file-alt"></i></span>
                                             <?php echo _QXZ($report_name); ?>
                                         </a>
                                     </div>
@@ -56036,29 +56210,33 @@ if ($ADD == 999999) {
 
             <!-- Custom Report Links HTML -->
             <?php if ((file_exists('custom_report_links.html')) and ((preg_match("/Custom Reports Links/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports)))): ?>
-            <div class="custom-reports-section">
+            <div class="custom-section">
+                <div class="section-header">
+                    <div class="icon-bg"><i class="fas fa-link"></i></div>
+                    <h2><?php echo _QXZ("Custom Report Links"); ?></h2>
+                </div>
                 <?php readfile('custom_report_links.html'); ?>
             </div>
             <?php endif; ?>
 
             <!-- Server Stats Table -->
             <?php if (($reports_only_user < 1) and ((preg_match("/Report Page Servers Summary/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports)))): ?>
-            <div class="server-stats-section">
-                <div class="server-stats-title">
-                    <i class="fas fa-server"></i>
+            <div class="server-section">
+                <div class="section-header">
+                    <div class="icon-bg"><i class="fas fa-server"></i></div>
                     <h2><?php echo _QXZ("Server Status Summary"); ?></h2>
                     <?php if ($stage == 'TIME'): ?>
-                        <a href="<?php echo $PHP_SELF; ?>?ADD=999999">
+                        <a href="<?php echo $PHP_SELF; ?>?ADD=999999" class="btn-toggle">
                             <i class="fas fa-eye-slash"></i> <?php echo _QXZ("Hide Time"); ?>
                         </a>
                     <?php else: ?>
-                        <a href="<?php echo $PHP_SELF; ?>?ADD=999999&stage=TIME">
+                        <a href="<?php echo $PHP_SELF; ?>?ADD=999999&stage=TIME" class="btn-toggle">
                             <i class="fas fa-clock"></i> <?php echo _QXZ("Show Time"); ?>
                         </a>
                     <?php endif; ?>
                 </div>
 
-                <div class="table-container">
+                <div class="table-wrapper">
                     <table class="server-table">
                         <thead>
                             <tr>
@@ -56082,10 +56260,11 @@ if ($ADD == 999999) {
                         <tbody>
                             <?php
                             $web_u_time = time();
-                            foreach ($server_data as $server) {
+                            
+                            for ($o = 0; $o < $servers_to_print; $o++) {
+                                $server = $server_data[$o];
                                 $cpu = 100 - $server['cpu_idle_percent'];
                                 
-                                // Calculate disk usage
                                 $disk = '';
                                 $disk_ary = explode('|', $server['disk_usage']);
                                 $disk_ary_ct = count($disk_ary);
@@ -56101,7 +56280,6 @@ if ($ADD == 999999) {
                                 }
                                 $disk = $disk . "%";
 
-                                // Get server update time
                                 $s_time = '&nbsp;';
                                 $s_ver = '&nbsp;';
                                 $u_time = $web_u_time;
@@ -56110,9 +56288,7 @@ if ($ADD == 999999) {
                                 
                                 $stmt = "SELECT last_update, UNIX_TIMESTAMP(last_update), UNIX_TIMESTAMP(db_time) FROM server_updater WHERE server_ip='{$server['server_ip']}';";
                                 $rslt = mysql_to_mysqli($stmt, $link);
-                                if ($DB) {
-                                    echo "<!-- $stmt -->\n";
-                                }
+                                if ($DB) { echo "<!-- $stmt -->\n"; }
                                 $servertime_to_print = mysqli_num_rows($rslt);
                                 if ($servertime_to_print) {
                                     $row = mysqli_fetch_row($rslt);
@@ -56122,36 +56298,60 @@ if ($ADD == 999999) {
                                     $Sdb_time = ($row[2] + 10);
                                 }
 
-                                // Get agent count
                                 $agnt = 0;
                                 $stmt = "SELECT COUNT(*) FROM vicidial_live_agents WHERE server_ip='{$server['server_ip']}';";
                                 $rslt = mysql_to_mysqli($stmt, $link);
-                                if ($DB) {
-                                    echo "<!-- $stmt -->\n";
-                                }
+                                if ($DB) { echo "<!-- $stmt -->\n"; }
                                 $agnt_to_print = mysqli_num_rows($rslt);
                                 if ($agnt_to_print) {
                                     $row = mysqli_fetch_row($rslt);
                                     $agnt = $row[0];
                                 }
 
-                                $row_class = ($web_u_time > $u_time) ? 'warning-row' : '';
+                                // Frozen server call clear logic
+                                $FROZEN_output = '';
+                                if (($web_u_time > $reset_time) && ($web_u_time > $Sdb_time) && ($SSfrozen_server_call_clear > 0)) {
+                                    $servercalls_count = 0;
+                                    $stmt = "SELECT COUNT(*) FROM vicidial_auto_calls WHERE server_ip='{$server['server_ip']}';";
+                                    $rslt = mysql_to_mysqli($stmt, $link);
+                                    if ($DB) { echo "<!-- $stmt -->\n"; }
+                                    $servercalls_to_print = mysqli_num_rows($rslt);
+                                    if ($servercalls_to_print) {
+                                        $row = mysqli_fetch_row($rslt);
+                                        $servercalls_count = $row[0];
+                                    }
+                                    if ($servercalls_count > 0) {
+                                        $stmt = "DELETE FROM vicidial_auto_calls WHERE server_ip='{$server['server_ip']}';";
+                                        $rslt = mysql_to_mysqli($stmt, $link);
+                                        $FCaffected_rows = mysqli_affected_rows($link);
+
+                                        // LOG INSERTION Admin Log Table
+                                        $SQL_log = "$stmt|";
+                                        $SQL_log = preg_replace('/;/', '', $SQL_log);
+                                        $SQL_log = addslashes($SQL_log);
+                                        $stmt_log = "INSERT INTO vicidial_admin_log SET event_date='$SQLdate', user='$PHP_AUTH_USER', ip_address='{$server['server_ip']}', event_section='SERVERS', event_type='CLEAR', record_id='{$server['server_id']}', event_code='FROZEN SERVER CALL CLEAR ADMIN', event_sql=\"$SQL_log\", event_notes='$servercalls_count|$FCaffected_rows|$s_time($web_u_time|$Sdb_time)';";
+                                        if ($DB) { echo "<!-- |$stmt_log| -->\n"; }
+                                        $rslt = mysql_to_mysqli($stmt_log, $link);
+
+                                        $FROZEN_output = "<tr class='row-warning'><td></td><td colspan='8'><strong>" . _QXZ("FROZEN CALLS CLEARED") . ":</strong> $servercalls_count|$FCaffected_rows</td></tr>\n";
+                                    }
+                                }
+
+                                $row_class = ($web_u_time > $u_time) ? 'row-warning' : '';
                                 ?>
                                 <tr class="<?php echo $row_class; ?>">
+                                    <td><a href="<?php echo $PHP_SELF; ?>?ADD=311111111111&server_id=<?php echo htmlspecialchars($server['server_id']); ?>"><strong><?php echo htmlspecialchars($server['server_id']); ?></strong></a></td>
+                                    <td><?php echo htmlspecialchars($server['server_description']); ?></td>
+                                    <td><?php echo htmlspecialchars($server['server_ip']); ?></td>
                                     <td>
-                                        <a href="<?php echo $PHP_SELF; ?>?ADD=311111111111&server_id=<?php echo $server['server_id']; ?>">
-                                            <strong><?php echo $server['server_id']; ?></strong>
-                                        </a>
-                                    </td>
-                                    <td><?php echo $server['server_description']; ?></td>
-                                    <td><?php echo $server['server_ip']; ?></td>
-                                    <td>
-                                        <span class="status-badge <?php echo ($server['active'] == 'Y') ? 'status-active' : 'status-inactive'; ?>">
-                                            <?php echo _QXZ($server['active']); ?>
+                                        <span class="status-pill <?php echo ($server['active'] == 'Y') ? 'active' : 'inactive'; ?>">
+                                            <?php echo _QXZ($server['active']); ?> / 
+                                            <?php echo _QXZ($server['active_asterisk_server']); ?> / 
+                                            <?php echo _QXZ($server['active_agent_login_server']); ?>
                                         </span>
                                     </td>
-                                    <td><?php echo $server['sysload']; ?> - <?php echo $cpu; ?>%</td>
-                                    <td><?php echo $server['channels_total']; ?></td>
+                                    <td><?php echo htmlspecialchars($server['sysload']); ?> - <?php echo $cpu; ?>%</td>
+                                    <td><?php echo htmlspecialchars($server['channels_total']); ?></td>
                                     <td><?php echo $agnt; ?></td>
                                     <td><?php echo $disk; ?></td>
                                     <?php if ($stage == 'TIME'): ?>
@@ -56160,76 +56360,81 @@ if ($ADD == 999999) {
                                             <?php
                                             $stmt = "SELECT svn_revision FROM servers WHERE server_ip='{$server['server_ip']}';";
                                             $rslt = mysql_to_mysqli($stmt, $link);
-                                            if ($DB) {
-                                                echo "<!-- $stmt -->\n";
-                                            }
+                                            if ($DB) { echo "<!-- $stmt -->\n"; }
                                             $serverver_to_print = mysqli_num_rows($rslt);
                                             if ($serverver_to_print) {
                                                 $row = mysqli_fetch_row($rslt);
-                                                echo $row[0];
+                                                echo htmlspecialchars($row[0]);
                                             }
                                             ?>
                                         </td>
                                     <?php else: ?>
-                                        <td><a href="AST_timeonVDAD.php?server_ip=<?php echo $server['server_ip']; ?>" class="version-badge"><?php echo _QXZ("LINK"); ?></a></td>
-                                        <td><a href="AST_timeonVDAD.php?server_ip=<?php echo $server['server_ip']; ?>&closer_display=1" class="version-badge"><?php echo _QXZ("LINK"); ?></a></td>
+                                        <td>
+                                            <?php if ((preg_match("/Real-Time Main Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                            <a href="AST_timeonVDAD.php?server_ip=<?php echo htmlspecialchars($server['server_ip']); ?>" class="link-badge"><?php echo _QXZ("LINK"); ?></a>
+                                            <?php else: ?>
+                                            &nbsp;
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if ((preg_match("/Real-Time Main Report/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports))): ?>
+                                            <a href="AST_timeonVDAD.php?server_ip=<?php echo htmlspecialchars($server['server_ip']); ?>&closer_display=1" class="link-badge"><?php echo _QXZ("LINK"); ?></a>
+                                            <?php else: ?>
+                                            &nbsp;
+                                            <?php endif; ?>
+                                        </td>
                                     <?php endif; ?>
                                 </tr>
-                                <?php
-                            }
+                                <?php echo $FROZEN_output; ?>
+                            <?php } ?>
 
-                            if ($stage == 'TIME') {
-                                ?>
-                                <tr class="time-row">
+                            <?php if ($stage == 'TIME'): ?>
+                                <tr class="row-info">
                                     <td colspan="2"></td>
                                     <td><strong><?php echo _QXZ("PHP Time"); ?></strong></td>
                                     <td colspan="5"></td>
                                     <td><strong><?php echo date("Y-m-d H:i:s"); ?></strong></td>
-                                    <td></td>
+                                    <td>&nbsp;</td>
                                 </tr>
                                 <?php
                                 $stmt = "SELECT NOW();";
                                 $rslt = mysql_to_mysqli($stmt, $link);
-                                if ($DB) {
-                                    echo "<!-- $stmt -->\n";
-                                }
+                                if ($DB) { echo "<!-- $stmt -->\n"; }
                                 $dbtime_to_print = mysqli_num_rows($rslt);
                                 if ($dbtime_to_print) {
                                     $row = mysqli_fetch_row($rslt);
                                     ?>
-                                    <tr class="time-row">
+                                    <tr class="row-info">
                                         <td colspan="2"></td>
                                         <td><strong><?php echo _QXZ("DB Time"); ?></strong></td>
                                         <td colspan="5"></td>
                                         <td><strong><?php echo $row[0]; ?></strong></td>
-                                        <td></td>
+                                        <td>&nbsp;</td>
                                     </tr>
-                                    <?php
-                                }
-                            }
-                            ?>
+                                <?php } ?>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
-            </div>
-            <?php endif; ?>
 
-            <!-- Admin Utilities -->
-            <?php if (($LOGuser_level >= 9) and ((preg_match("/Admin Utilities Page/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports)))): ?>
-            <div class="admin-utilities">
-                <a href="<?php echo $PHP_SELF; ?>?ADD=999994">
-                    <i class="fas fa-tools"></i>
-                    <?php echo _QXZ("Admin Utilities"); ?>
-                    <i class="fas fa-arrow-right"></i>
-                </a>
+                <!-- Admin Utilities -->
+                <?php if (($LOGuser_level >= 9) and ((preg_match("/Admin Utilities Page/", $LOGallowed_reports)) or (preg_match("/ALL REPORTS/", $LOGallowed_reports)))): ?>
+                <div class="admin-util">
+                    <a href="<?php echo $PHP_SELF; ?>?ADD=999994" class="btn-admin">
+                        <i class="fas fa-tools"></i> <?php echo _QXZ("Admin Utilities"); ?> <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
         </div>
+        </body>
+        </html>
         <?php
     } else {
-        echo "<div style='text-align: center; padding: 50px; font-family: Poppins, sans-serif; color: #991b1b; background: #fee2e2; border-radius: 12px; margin: 20px;'>";
-        echo "<i class='fas fa-exclamation-triangle' style='font-size: 48px; margin-bottom: 20px;'></i>";
-        echo "<h2>" . _QXZ("You do not have permission to view this page") . "</h2>";
+        echo "<div style='text-align:center;padding:50px;font-family:Poppins,sans-serif;background:#fee2e2;border-radius:16px;margin:20px;'>";
+        echo "<div style='font-size:48px;margin-bottom:20px;'><i class='fas fa-exclamation-triangle' style='color:#991b1b;'></i></div>";
+        echo "<h2 style='color:#991b1b;'>" . _QXZ("You do not have permission to view this page") . "</h2>";
         echo "</div>";
         exit;
     }
