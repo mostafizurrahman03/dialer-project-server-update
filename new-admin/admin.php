@@ -55687,6 +55687,18 @@ if ($ADD == 999999) {
                 border-radius: 0 var(--radius-sm) 0 0;
             }
 
+            .server-table thead th .toggle-link {
+                color: white;
+                text-decoration: none;
+                margin-left: 4px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+
+            .server-table thead th .toggle-link:hover {
+                color: #f0f9ff;
+            }
+
             .server-table tbody td {
                 padding: 10px;
                 font-size: 12px;
@@ -56227,11 +56239,11 @@ if ($ADD == 999999) {
                     <h2><?php echo _QXZ("Server Status Summary"); ?></h2>
                     <?php if ($stage == 'TIME'): ?>
                         <a href="<?php echo $PHP_SELF; ?>?ADD=999999" class="btn-toggle">
-                            <i class="fas fa-eye-slash"></i> <?php echo _QXZ("Hide Time"); ?>
+                            <i class="fas fa-minus"></i> <?php echo _QXZ("Hide Time"); ?>
                         </a>
                     <?php else: ?>
                         <a href="<?php echo $PHP_SELF; ?>?ADD=999999&stage=TIME" class="btn-toggle">
-                            <i class="fas fa-clock"></i> <?php echo _QXZ("Show Time"); ?>
+                            <i class="fas fa-plus"></i> <?php echo _QXZ("Show Time"); ?>
                         </a>
                     <?php endif; ?>
                 </div>
@@ -56240,17 +56252,24 @@ if ($ADD == 999999) {
                     <table class="server-table">
                         <thead>
                             <tr>
-                                <th><?php echo _QXZ("SERVER"); ?></th>
+                                <th>
+                                    <?php echo _QXZ("SERVER"); ?> 
+                                    <?php if ($stage == 'TIME'): ?>
+                                        <a href="<?php echo $PHP_SELF; ?>?ADD=999999" class="toggle-link">-</a>
+                                    <?php else: ?>
+                                        <a href="<?php echo $PHP_SELF; ?>?ADD=999999&stage=TIME" class="toggle-link">+</a>
+                                    <?php endif; ?>
+                                </th>
                                 <th><?php echo _QXZ("DESCRIPTION"); ?></th>
                                 <th><?php echo _QXZ("IP"); ?></th>
-                                <th><?php echo _QXZ("STATUS"); ?></th>
+                                <th><?php echo _QXZ("ACT"); ?></th>
                                 <th><?php echo _QXZ("LOAD"); ?></th>
                                 <th><?php echo _QXZ("CHAN"); ?></th>
-                                <th><?php echo _QXZ("AGENTS"); ?></th>
+                                <th><?php echo _QXZ("AGNT"); ?></th>
                                 <th><?php echo _QXZ("DISK"); ?></th>
                                 <?php if ($stage == 'TIME'): ?>
-                                    <th><?php echo _QXZ("LAST UPDATE"); ?></th>
-                                    <th><?php echo _QXZ("VERSION"); ?></th>
+                                    <th><?php echo _QXZ("TIME"); ?></th>
+                                    <th><?php echo _QXZ("VER"); ?></th>
                                 <?php else: ?>
                                     <th><?php echo _QXZ("OUTBOUND"); ?></th>
                                     <th><?php echo _QXZ("INBOUND"); ?></th>
